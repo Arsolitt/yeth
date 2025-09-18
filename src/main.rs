@@ -7,6 +7,8 @@ use serde::Deserialize;
 use toml;
 use anyhow::Result;
 
+const CONFIG_FILE: &str = "yeth.toml";
+
 #[derive(Deserialize, Debug)]
 struct AppConfig {
     app: AppInfo,
@@ -45,9 +47,8 @@ fn main() -> Result<()> {
     let root = PathBuf::from(".");
     let mut apps = HashMap::new();
 
-    // Поиск всех монорепозиторных приложений
     for entry in WalkDir::new(&root).into_iter().filter_map(|e| e.ok()) {
-        if entry.file_name() == "monorepo.toml" {
+        if entry.file_name() == CONFIG_FILE {
             let app_dir = entry.path().parent().unwrap().to_path_buf();
             let app_name = app_dir.file_name().unwrap().to_string_lossy().into_owned();
 
@@ -59,7 +60,6 @@ fn main() -> Result<()> {
         }
     }
 
-    // Построение графа зависимостей
     let mut graph = HashMap::new();
     let mut in_degree = HashMap::new();
 
@@ -73,7 +73,6 @@ fn main() -> Result<()> {
         in_degree.insert(app_name.clone(), deps.len());
     }
 
-    // Топологическая сортировка (алгоритм Кана)
     let mut queue = VecDeque::new();
     for (app, &deg) in &in_degree {
         if deg == 0 {
@@ -95,12 +94,11 @@ fn main() -> Result<()> {
         }
     }
 
-    // Проверка циклов
+
     if topo_order.len() != apps.len() {
-        return Err(anyhow::anyhow!("Обнаружен циклический dependency!"));
+        return Err(anyhow::anyhow!("Обнаружена циклическая зависимость!"));
     }
 
-    // Вычисление хешей
     let mut hashes = HashMap::new();
     for app_name in topo_order {
         let (app_dir, deps) = apps.get(&app_name).unwrap();
@@ -117,8 +115,10 @@ fn main() -> Result<()> {
         hashes.insert(app_name.clone(), final_hash);
     }
 
-    // Вывод результатов
-    for (app, hash) in &hashes {
+    let mut sorted_apps: Vec<_> = hashes.keys().collect();
+    sorted_apps.sort();
+    for app in sorted_apps {
+        let hash = hashes.get(app).unwrap();
         println!("{}: {}", app, hash);
     }
 
