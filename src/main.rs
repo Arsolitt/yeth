@@ -1,6 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::path::PathBuf;
+use std::time::Instant;
 use walkdir::WalkDir;
 use sha2::{Sha256, Digest};
 use serde::Deserialize;
@@ -44,6 +45,8 @@ fn hash_directory(path: &PathBuf) -> Result<String> {
 }
 
 fn main() -> Result<()> {
+    let start_time = Instant::now();
+
     let root = PathBuf::from(".");
     let mut apps = HashMap::new();
 
@@ -119,8 +122,14 @@ fn main() -> Result<()> {
     sorted_apps.sort();
     for app in sorted_apps {
         let hash = hashes.get(app).unwrap();
-        println!("{}: {}", app, hash);
+        println!("{} {}", hash, app);
     }
+
+    let elapsed_time = start_time.elapsed();    
+
+    println!();
+    println!("Время выполнения: {:.2?}", elapsed_time);
+    println!("Обработано приложений: {}", hashes.len());
 
     Ok(())
 }
