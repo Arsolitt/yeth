@@ -38,7 +38,7 @@ fn main() -> Result<()> {
     let mut hashes = HashMap::new();
     for app_name in topo_order {
         let app = apps.get(&app_name).unwrap();
-        let own_hash = hash_directory(&app.dir)?;
+        let own_hash = hash_directory(&app.dir, &app.exclude_patterns)?;
 
         // Собираем хэши всех зависимостей (приложения + пути)
         let mut dep_hashes_owned: Vec<String> = Vec::new();
@@ -54,7 +54,8 @@ fn main() -> Result<()> {
                 }
                 Dependency::Path(path) => {
                     // Вычисляем хэш файла/директории на лету
-                    let path_hash = hash_path(path)?;
+                    // Используем exclude_patterns приложения - они уже разрешены в абсолютные пути
+                    let path_hash = hash_path(path, &app.exclude_patterns)?;
                     dep_hashes_owned.push(path_hash);
                 }
             }

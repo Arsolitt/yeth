@@ -15,6 +15,17 @@ struct AppConfig {
 #[derive(Deserialize, Debug)]
 struct AppInfo {
     dependencies: Vec<String>,
+    #[serde(default)]
+    exclude: Vec<String>,
+}
+
+/// Паттерн исключения
+#[derive(Debug, Clone)]
+pub enum ExcludePattern {
+    /// Простое имя (node_modules) - исключается везде где встретится
+    Name(String),
+    /// Абсолютный путь - исключается конкретный файл/директория
+    AbsolutePath(PathBuf),
 }
 
 /// Тип зависимости
@@ -61,6 +72,7 @@ pub struct App {
     pub name: String,
     pub dir: PathBuf,
     pub dependencies: Vec<Dependency>,
+    pub exclude_patterns: Vec<ExcludePattern>,
 }
 
 /// Сканирует директорию в поисках приложений с yeth.toml
@@ -83,12 +95,33 @@ pub fn discover_apps(root: &PathBuf) -> Result<HashMap<String, App>> {
                 .map(|dep_str| Dependency::parse(dep_str, &app_dir))
                 .collect();
 
+            // Парсим паттерны исключений
+            let exclude_patterns = config
+                .app
+                .exclude
+                .iter()
+                .map(|pattern| {
+                    // Если содержит / или начинается с . - это путь
+                    if pattern.contains('/') || pattern.starts_with('.') {
+                        // Разрешаем относительно директории приложения
+                        let abs_path = app_dir.join(pattern);
+                        // Канонизируем путь (убираем .. и .)
+                        let canonical = abs_path.canonicalize().unwrap_or(abs_path);
+                        ExcludePattern::AbsolutePath(canonical)
+                    } else {
+                        // Простое имя
+                        ExcludePattern::Name(pattern.clone())
+                    }
+                })
+                .collect();
+
             apps.insert(
                 app_name.clone(),
                 App {
                     name: app_name,
                     dir: app_dir,
                     dependencies,
+                    exclude_patterns,
                 },
             );
         }

@@ -112,6 +112,57 @@ dependencies = [
 
 **Важно:** Пути разрешаются относительно директории приложения (где находится `yeth.toml`).
 
+### Исключение файлов из хэширования
+
+Можно указать файлы и директории, которые нужно исключить из вычисления хэша приложения:
+
+```toml
+[app]
+dependencies = ["app1"]
+exclude = [
+    "node_modules",           # игнорировать директорию node_modules
+    "dist",                   # игнорировать директорию dist
+    "target",                 # игнорировать директорию target
+    ".env",                   # игнорировать файл .env
+    "tests",                  # игнорировать всё в tests/
+    "src/generated"           # игнорировать src/generated/
+]
+```
+
+**Как работает исключение:**
+- Паттерны проверяются относительно корня приложения
+- Можно указать имя директории (`node_modules`) — будет исключена везде где встретится
+- Можно указать путь (`src/generated`) — будет исключён конкретный путь
+- Префиксное совпадение: если путь начинается с паттерна, он исключается
+- **Важно:** Паттерны с путями (`../shared/README.md`) применяются глобально — исключат файлы даже внутри зависимостей
+
+**Примеры:**
+
+```toml
+# Базовая конфигурация без исключений
+[app]
+dependencies = []
+
+# С исключениями локальных файлов
+[app]
+dependencies = ["backend"]
+exclude = ["node_modules", "dist", "tmp"]
+
+# Исключение файлов из зависимостей
+[app]
+dependencies = ["../shared"]
+exclude = ["../shared/README.md", "../shared/docs"]
+
+# Комбинированное исключение
+[app]
+dependencies = ["../shared", "../common"]
+exclude = [
+    "node_modules",              # локальное исключение
+    "../shared/README.md",       # исключение из зависимости
+    "../common/tests"            # исключение директории из зависимости
+]
+```
+
 ## Примеры
 
 ### Структура проекта
@@ -141,11 +192,30 @@ monorepo/
 ├── apps/
 │   ├── frontend/
 │   │   ├── yeth.toml      # dependencies = ["backend", "../../shared/config.json"]
+│   │   │                  # exclude = ["node_modules", "dist"]
+│   │   ├── node_modules/
+│   │   ├── dist/
 │   │   └── src/
 │   └── backend/
 │       ├── yeth.toml      # dependencies = ["../../shared/utils"]
+│       │                  # exclude = ["target"]
+│       ├── target/
 │       └── src/
 └── config.yaml
+```
+
+**Конфиг frontend/yeth.toml:**
+```toml
+[app]
+dependencies = ["backend", "../../shared/config.json"]
+exclude = ["node_modules", "dist", ".next"]
+```
+
+**Конфиг backend/yeth.toml:**
+```toml
+[app]
+dependencies = ["../../shared/utils"]
+exclude = ["target", "*.log"]
 ```
 
 ### Примеры вывода
@@ -197,6 +267,70 @@ if [ "$APP_HASH" != "$LAST_BUILD_HASH" ]; then
 fi
 ```
 
+### Практический пример 1: Простое исключение
+
+Структура проекта:
+```
+example/
+├── app1/
+│   ├── yeth.toml          # dependencies = [], exclude = ["node_modules", "dist"]
+│   ├── main.js
+│   ├── node_modules/      # исключено из хэша
+│   └── dist/              # исключено из хэша
+└── app2/
+    ├── yeth.toml          # dependencies = ["app1"], exclude = ["target"]
+    ├── main.rs
+    └── target/            # исключено из хэша
+```
+
+**Важно:** Файлы в `node_modules`, `dist` и `target` не влияют на хэш, т.к. указаны в `exclude`.
+
+### Практический пример 2: Исключение файлов из зависимостей
+
+Структура:
+```
+example/
+├── catalog/
+│   ├── yeth.toml          # dependencies = ["../shared"]
+│   │                      # exclude = ["../shared/README.md"]
+│   └── index.js
+└── shared/
+    ├── yeth.toml
+    ├── utils.js
+    └── README.md          # исключено из хэша catalog, но НЕ исключено из хэша shared
+```
+
+**Конфиг catalog/yeth.toml:**
+```toml
+[app]
+dependencies = ["../shared"]
+exclude = ["../shared/README.md", "node_modules"]
+```
+
+**Результат:**
+- Изменение `shared/README.md` → хэш `catalog` **НЕ меняется** ✅
+- Изменение `shared/README.md` → хэш `shared` **меняется** (у него нет этого исключения)
+- Изменение `shared/utils.js` → хэш `catalog` **меняется** ✅
+
+Запуск:
+```bash
+$ yeth --root example
+47aa9e986c6e4c0b7bd839d97eda81700fccc8575e1cfa8cf7ce70809c4bfb1e catalog
+d98a899314cd6581de6446f1a427a9822013b3065a92a38f61d381571c86da7d shared
+
+# Изменяем shared/README.md
+$ echo "update" >> shared/README.md
+$ yeth --root example
+47aa9e986c6e4c0b7bd839d97eda81700fccc8575e1cfa8cf7ce70809c4bfb1e catalog  ← не изменился
+00214c62f5d76e98dac137675059581576eeabfc8d084dc8b6206f84dd84f692 shared  ← изменился
+
+# Изменяем shared/utils.js
+$ echo "update" >> shared/utils.js  
+$ yeth --root example
+54010998be564b7a736a48e418084ec3247c23e8d2d5d1ba8c4065d75ea988fa catalog  ← изменился
+25116e4ece02de6be08a5093f3b867092e0b1df4713f087470bb932afe5785bb shared  ← изменился
+```
+
 ## Опции командной строки
 
 ```
@@ -230,4 +364,5 @@ Options:
 - Изменение в любой зависимости (приложении, файле, директории) повлияет на хэш всех зависящих от неё приложений
 - Зависимости от файлов/директорий не участвуют в топологической сортировке (они не могут быть циклическими)
 - Зависимости-пути проверяются на существование при старте программы
-- Игнорируются системные файлы (`.git`, `.idea`, `.DS_Store`)
+- Автоматически игнорируются системные файлы (`.git`, `.DS_Store`)
+- Дополнительно можно указать файлы для исключения через поле `exclude` в конфиге
