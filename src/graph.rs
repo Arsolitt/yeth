@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::collections::{HashMap, VecDeque};
 
-use crate::config::App;
+use crate::config::{App, Dependency};
 
 /// Строит граф зависимостей и возвращает топологически отсортированный список
 pub fn topological_sort(apps: &HashMap<String, App>) -> Result<Vec<String>> {
@@ -10,20 +10,40 @@ pub fn topological_sort(apps: &HashMap<String, App>) -> Result<Vec<String>> {
 
     // Строим граф и проверяем что все зависимости существуют
     for (app_name, app) in apps {
+        let mut valid_app_deps = 0;
+        
         for dep in &app.dependencies {
-            if !apps.contains_key(dep) {
-                return Err(anyhow::anyhow!(
-                    "Зависимость '{}' для приложения '{}' не найдена",
-                    dep,
-                    app_name
-                ));
+            match dep {
+                Dependency::App(dep_name) => {
+                    // Проверяем что приложение-зависимость существует
+                    if !apps.contains_key(dep_name) {
+                        return Err(anyhow::anyhow!(
+                            "Зависимость-приложение '{}' для '{}' не найдена",
+                            dep_name,
+                            app_name
+                        ));
+                    }
+                    graph
+                        .entry(dep_name.clone())
+                        .or_insert_with(Vec::new)
+                        .push(app_name.clone());
+                    valid_app_deps += 1;
+                }
+                Dependency::Path(path) => {
+                    // Проверяем что путь существует
+                    if !path.exists() {
+                        return Err(anyhow::anyhow!(
+                            "Зависимость-путь '{}' для '{}' не найдена",
+                            path.display(),
+                            app_name
+                        ));
+                    }
+                }
             }
-            graph
-                .entry(dep.clone())
-                .or_insert_with(Vec::new)
-                .push(app_name.clone());
         }
-        in_degree.insert(app_name.clone(), app.dependencies.len());
+        
+        // В степень входа учитываем только зависимости от других приложений
+        in_degree.insert(app_name.clone(), valid_app_deps);
     }
 
     // Топологическая сортировка (Kahn's algorithm)
