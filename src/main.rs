@@ -67,6 +67,15 @@ fn main() -> Result<()> {
         hashes.insert(app_name.clone(), final_hash);
     }
 
+    // Сохраняем хеши в файлы если нужно
+    if args.write_versions {
+        for (app_name, hash) in &hashes {
+            let app = apps.get(app_name).unwrap();
+            let version_file = app.dir.join("yeth.version");
+            std::fs::write(&version_file, hash)?;
+        }
+    }
+
     // Выводим результаты
     if let Some(app_name) = &args.app {
         // Вывод для конкретного приложения

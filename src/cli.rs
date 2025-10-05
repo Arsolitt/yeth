@@ -24,5 +24,9 @@ pub struct Cli {
     /// Показать граф зависимостей
     #[arg(short = 'g', long)]
     pub show_graph: bool,
+
+    /// Сохранить хеш каждого приложения в yeth.version рядом с yeth.toml
+    #[arg(short = 'w', long)]
+    pub write_versions: bool,
 }
 
