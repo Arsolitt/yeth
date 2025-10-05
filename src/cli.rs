@@ -3,29 +3,29 @@ use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(name = "yeth")]
-#[command(about = "Утилита для построения графа зависимостей между приложениями", long_about = None)]
+#[command(about = "A utility for building dependency graphs between applications", long_about = None)]
 pub struct Cli {
-    /// Корневая директория для поиска приложений
+    /// Root directory to search for applications
     #[arg(short, long, default_value = ".")]
     pub root: PathBuf,
 
-    /// Имя конкретного приложения для вывода хэша (по умолчанию выводятся все)
+    /// Name of specific application to output hash for (defaults to all)
     #[arg(short, long)]
     pub app: Option<String>,
 
-    /// Показывать только хэш без имени приложения (работает только с --app)
+    /// Show only hash without application name (works only with --app)
     #[arg(short = 'H', long, requires = "app")]
     pub hash_only: bool,
 
-    /// Не показывать статистику времени выполнения
+    /// Show execution time statistics
     #[arg(short = 'v', long)]
     pub verbose: bool,
 
-    /// Показать граф зависимостей
+    /// Show dependency graph
     #[arg(short = 'g', long)]
     pub show_graph: bool,
 
-    /// Сохранить хеш каждого приложения в yeth.version рядом с yeth.toml
+    /// Save each application's hash to yeth.version next to yeth.toml
     #[arg(short = 'w', long)]
     pub write_versions: bool,
 }

@@ -17,44 +17,44 @@ fn main() -> Result<()> {
     let args = Cli::parse();
     let start_time = Instant::now();
 
-    // Находим все приложения
+    // Find all applications
     let apps = discover_apps(&args.root)?;
 
     if apps.is_empty() {
-        eprintln!("Не найдено приложений с yeth.toml");
+        eprintln!("No applications with yeth.toml found");
         return Ok(());
     }
 
-    // Если запрошен граф зависимостей
+    // If dependency graph requested
     if args.show_graph {
         print_dependency_graph(&apps);
         return Ok(());
     }
 
-    // Топологическая сортировка
+    // Topological sort
     let topo_order = topological_sort(&apps)?;
 
-    // Вычисляем хэши
+    // Calculate hashes
     let mut hashes = HashMap::new();
     for app_name in topo_order {
         let app = apps.get(&app_name).unwrap();
         let own_hash = hash_directory(&app.dir, &app.exclude_patterns)?;
 
-        // Собираем хэши всех зависимостей (приложения + пути)
+        // Collect hashes of all dependencies (apps + paths)
         let mut dep_hashes_owned: Vec<String> = Vec::new();
         
         for dep in &app.dependencies {
             match dep {
                 Dependency::App(dep_name) => {
-                    // Берём уже вычисленный хэш приложения
+                    // Get already calculated application hash
                     let dep_hash: &String = hashes
                         .get(dep_name)
-                        .expect("Зависимость не обработана в правильном порядке");
+                        .expect("Dependency not processed in correct order");
                     dep_hashes_owned.push(dep_hash.clone());
                 }
                 Dependency::Path(path) => {
-                    // Вычисляем хэш файла/директории на лету
-                    // Используем exclude_patterns приложения - они уже разрешены в абсолютные пути
+                    // Calculate file/directory hash on the fly
+                    // Use application's exclude_patterns - they are already resolved to absolute paths
                     let path_hash = hash_path(path, &app.exclude_patterns)?;
                     dep_hashes_owned.push(path_hash);
                 }
@@ -67,7 +67,7 @@ fn main() -> Result<()> {
         hashes.insert(app_name.clone(), final_hash);
     }
 
-    // Сохраняем хеши в файлы если нужно
+    // Save hashes to files if needed
     if args.write_versions {
         for (app_name, hash) in &hashes {
             let app = apps.get(app_name).unwrap();
@@ -76,9 +76,9 @@ fn main() -> Result<()> {
         }
     }
 
-    // Выводим результаты
+    // Output results
     if let Some(app_name) = &args.app {
-        // Вывод для конкретного приложения
+        // Output for specific application
         if let Some(hash) = hashes.get(app_name) {
             if args.hash_only {
                 println!("{}", hash);
@@ -86,11 +86,11 @@ fn main() -> Result<()> {
                 println!("{} {}", hash, app_name);
             }
         } else {
-            eprintln!("Приложение '{}' не найдено", app_name);
+            eprintln!("Application '{}' not found", app_name);
             std::process::exit(1);
         }
     } else {
-        // Вывод всех приложений
+        // Output all applications
         let mut sorted_apps: Vec<_> = hashes.keys().collect();
         sorted_apps.sort();
         for app in sorted_apps {
@@ -99,19 +99,19 @@ fn main() -> Result<()> {
         }
     }
 
-    // Статистика
+    // Statistics
     if args.verbose {
         let elapsed_time = start_time.elapsed();
         println!();
-        println!("Время выполнения: {:.2?}", elapsed_time);
-        println!("Обработано приложений: {}", hashes.len());
+        println!("Execution time: {:.2?}", elapsed_time);
+        println!("Applications processed: {}", hashes.len());
     }
 
     Ok(())
 }
 
 fn print_dependency_graph(apps: &HashMap<String, config::App>) {
-    println!("Граф зависимостей:\n");
+    println!("Dependency graph:\n");
     let mut sorted_apps: Vec<_> = apps.keys().collect();
     sorted_apps.sort();
 
@@ -119,7 +119,7 @@ fn print_dependency_graph(apps: &HashMap<String, config::App>) {
         let app = apps.get(app_name).unwrap();
         println!("{}", app_name);
         if app.dependencies.is_empty() {
-            println!("  └─ (нет зависимостей)");
+            println!("  └─ (no dependencies)");
         } else {
             for (i, dep) in app.dependencies.iter().enumerate() {
                 let prefix = if i == app.dependencies.len() - 1 {

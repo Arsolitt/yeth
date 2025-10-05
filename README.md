@@ -1,173 +1,181 @@
 # yeth
 
-Утилита для построения графа зависимостей между приложениями и вычисления их хэшей.
+A utility for building dependency graphs between applications and calculating their hashes.
 
-## Как это работает
+## How it works
 
-1. Сканирует директории в поисках файлов `yeth.toml`
-2. Строит граф зависимостей между приложениями
-3. Проверяет на циклические зависимости
-4. Вычисляет хэш каждого приложения с учётом хэшей его зависимостей
-5. Выводит результаты
+1. Scans directories for `yeth.toml` files
+2. Builds a dependency graph between applications
+3. Checks for circular dependencies
+4. Calculates the hash of each application including its dependencies' hashes
+5. Outputs the results
 
-## Установка
+## Installation
 
 ```bash
 cargo build --release
 ```
 
-Бинарник будет в `target/release/yeth`
+Binary will be in `target/release/yeth`
 
-## Использование
+## Usage
 
-### Базовое использование
+### Basic usage
 
-Вывести хэши всех приложений:
+Output hashes of all applications:
 
 ```bash
 yeth
 ```
 
-### Вывод хэша конкретного приложения
+### Output hash of specific application
 
 ```bash
 yeth --app my-app
 ```
 
-### Вывод только хэша (без имени)
+### Output only hash (without name)
 
-Полезно для скриптов:
+Useful for scripts:
 
 ```bash
 yeth --app my-app --hash-only
 ```
 
-### Указать корневую директорию
+### Specify root directory
 
 ```bash
 yeth --root /path/to/monorepo
 ```
 
-### Показать граф зависимостей
+### Show dependency graph
 
 ```bash
 yeth --show-graph
 ```
 
-### Тихий режим (без статистики)
+### Show statistics
 
 ```bash
 yeth --verbose
 ```
 
-## Формат конфигурации
+### Save version files
 
-Создайте файл `yeth.toml` в корне каждого приложения:
+Save each application's hash to `yeth.version` file next to `yeth.toml`:
+
+```bash
+yeth --write-versions
+```
+
+## Configuration format
+
+Create a `yeth.toml` file in the root of each application:
 
 ```toml
 [app]
 dependencies = ["app1", "app2"]
 ```
 
-Если у приложения нет зависимостей:
+If the application has no dependencies:
 
 ```toml
 [app]
 dependencies = []
 ```
 
-### Типы зависимостей
+### Dependency types
 
-Можно указывать два типа зависимостей:
+You can specify two types of dependencies:
 
-1. **Зависимости от других приложений** (имена без слэшей):
+1. **Dependencies on other applications** (names without slashes):
 ```toml
 [app]
 dependencies = ["app1", "backend", "shared"]
 ```
 
-2. **Зависимости от файлов и директорий** (относительные пути):
+2. **Dependencies on files and directories** (relative paths):
 ```toml
 [app]
 dependencies = [
-    "../shared/config.json",      # файл
-    "./vendor",                    # директория
-    "../../../root-config.yaml"   # путь вверх по дереву
+    "../shared/config.json",      # file
+    "./vendor",                    # directory
+    "../../../root-config.yaml"   # path up the tree
 ]
 ```
 
-3. **Смешанные зависимости**:
+3. **Mixed dependencies**:
 ```toml
 [app]
 dependencies = [
-    "app1",                    # зависимость от приложения
-    "../shared/utils",         # зависимость от директории
-    "./config.json"            # зависимость от файла
+    "app1",                    # application dependency
+    "../shared/utils",         # directory dependency
+    "./config.json"            # file dependency
 ]
 ```
 
-**Правило определения типа:**
-- Если строка содержит `/` или начинается с `.` → это путь к файлу/директории
-- Иначе → это имя приложения
+**Type determination rule:**
+- If string contains `/` or starts with `.` → it's a path to file/directory
+- Otherwise → it's an application name
 
-**Важно:** Пути разрешаются относительно директории приложения (где находится `yeth.toml`).
+**Important:** Paths are resolved relative to the application directory (where `yeth.toml` is located).
 
-### Исключение файлов из хэширования
+### Excluding files from hashing
 
-Можно указать файлы и директории, которые нужно исключить из вычисления хэша приложения:
+You can specify files and directories to exclude from application hash calculation:
 
 ```toml
 [app]
 dependencies = ["app1"]
 exclude = [
-    "node_modules",           # игнорировать директорию node_modules
-    "dist",                   # игнорировать директорию dist
-    "target",                 # игнорировать директорию target
-    ".env",                   # игнорировать файл .env
-    "tests",                  # игнорировать всё в tests/
-    "src/generated"           # игнорировать src/generated/
+    "node_modules",           # ignore node_modules directory
+    "dist",                   # ignore dist directory
+    "target",                 # ignore target directory
+    ".env",                   # ignore .env file
+    "tests",                  # ignore everything in tests/
+    "src/generated"           # ignore src/generated/
 ]
 ```
 
-**Как работает исключение:**
-- Паттерны проверяются относительно корня приложения
-- Можно указать имя директории (`node_modules`) — будет исключена везде где встретится
-- Можно указать путь (`src/generated`) — будет исключён конкретный путь
-- Префиксное совпадение: если путь начинается с паттерна, он исключается
-- **Важно:** Паттерны с путями (`../shared/README.md`) применяются глобально — исключат файлы даже внутри зависимостей
+**How exclusion works:**
+- Patterns are checked relative to application root
+- You can specify directory name (`node_modules`) — will be excluded wherever it appears
+- You can specify path (`src/generated`) — will exclude specific path
+- Prefix matching: if path starts with pattern, it's excluded
+- **Important:** Patterns with paths (`../shared/README.md`) apply globally — will exclude files even inside dependencies
 
-**Примеры:**
+**Examples:**
 
 ```toml
-# Базовая конфигурация без исключений
+# Basic configuration without exclusions
 [app]
 dependencies = []
 
-# С исключениями локальных файлов
+# With local file exclusions
 [app]
 dependencies = ["backend"]
 exclude = ["node_modules", "dist", "tmp"]
 
-# Исключение файлов из зависимостей
+# Excluding files from dependencies
 [app]
 dependencies = ["../shared"]
 exclude = ["../shared/README.md", "../shared/docs"]
 
-# Комбинированное исключение
+# Combined exclusion
 [app]
 dependencies = ["../shared", "../common"]
 exclude = [
-    "node_modules",              # локальное исключение
-    "../shared/README.md",       # исключение из зависимости
-    "../common/tests"            # исключение директории из зависимости
+    "node_modules",              # local exclusion
+    "../shared/README.md",       # file exclusion from dependency
+    "../common/tests"            # directory exclusion from dependency
 ]
 ```
 
-## Примеры
+## Examples
 
-### Структура проекта
+### Project structure
 
-#### Пример 1: Только зависимости между приложениями
+#### Example 1: Only application dependencies
 
 ```
 monorepo/
@@ -182,7 +190,7 @@ monorepo/
     └── src/
 ```
 
-#### Пример 2: С зависимостями от файлов и директорий
+#### Example 2: With file and directory dependencies
 
 ```
 monorepo/
@@ -204,23 +212,23 @@ monorepo/
 └── config.yaml
 ```
 
-**Конфиг frontend/yeth.toml:**
+**frontend/yeth.toml config:**
 ```toml
 [app]
 dependencies = ["backend", "../../shared/config.json"]
 exclude = ["node_modules", "dist", ".next"]
 ```
 
-**Конфиг backend/yeth.toml:**
+**backend/yeth.toml config:**
 ```toml
 [app]
 dependencies = ["../../shared/utils"]
 exclude = ["target", "*.log"]
 ```
 
-### Примеры вывода
+### Output examples
 
-#### Обычный вывод
+#### Normal output
 
 ```bash
 $ yeth
@@ -228,18 +236,18 @@ a1b2c3d4... app1
 e5f6g7h8... app2
 i9j0k1l2... app3
 
-Время выполнения: 123.45ms
-Обработано приложений: 3
+Execution time: 123.45ms
+Applications processed: 3
 ```
 
-#### Граф зависимостей
+#### Dependency graph
 
 ```bash
 $ yeth --show-graph
-Граф зависимостей:
+Dependency graph:
 
 app1
-  └─ (нет зависимостей)
+  └─ (no dependencies)
 
 app2
   ├─ app1 (app)
@@ -251,43 +259,43 @@ app3
   └─ ../shared/utils (dir)
 ```
 
-### Использование в CI/CD
+### Usage in CI/CD
 
-Получить хэш приложения для определения нужно ли его пересобирать:
+Get application hash to determine if rebuild is needed:
 
 ```bash
 #!/bin/bash
 APP_HASH=$(yeth --app my-app --hash-only --verbose)
-echo "Текущий хэш: $APP_HASH"
+echo "Current hash: $APP_HASH"
 
-# Сравнить с сохранённым хэшом и решить нужна ли пересборка
+# Compare with saved hash and decide if rebuild is needed
 if [ "$APP_HASH" != "$LAST_BUILD_HASH" ]; then
-    echo "Изменения обнаружены, запускаем сборку..."
+    echo "Changes detected, starting build..."
     # build commands here
 fi
 ```
 
-### Практический пример 1: Простое исключение
+### Practical example 1: Simple exclusion
 
-Структура проекта:
+Project structure:
 ```
 example/
 ├── app1/
 │   ├── yeth.toml          # dependencies = [], exclude = ["node_modules", "dist"]
 │   ├── main.js
-│   ├── node_modules/      # исключено из хэша
-│   └── dist/              # исключено из хэша
+│   ├── node_modules/      # excluded from hash
+│   └── dist/              # excluded from hash
 └── app2/
     ├── yeth.toml          # dependencies = ["app1"], exclude = ["target"]
     ├── main.rs
-    └── target/            # исключено из хэша
+    └── target/            # excluded from hash
 ```
 
-**Важно:** Файлы в `node_modules`, `dist` и `target` не влияют на хэш, т.к. указаны в `exclude`.
+**Important:** Files in `node_modules`, `dist` and `target` don't affect hash, as they're specified in `exclude`.
 
-### Практический пример 2: Исключение файлов из зависимостей
+### Practical example 2: Excluding files from dependencies
 
-Структура:
+Structure:
 ```
 example/
 ├── catalog/
@@ -297,72 +305,73 @@ example/
 └── shared/
     ├── yeth.toml
     ├── utils.js
-    └── README.md          # исключено из хэша catalog, но НЕ исключено из хэша shared
+    └── README.md          # excluded from catalog hash, but NOT excluded from shared hash
 ```
 
-**Конфиг catalog/yeth.toml:**
+**catalog/yeth.toml config:**
 ```toml
 [app]
 dependencies = ["../shared"]
 exclude = ["../shared/README.md", "node_modules"]
 ```
 
-**Результат:**
-- Изменение `shared/README.md` → хэш `catalog` **НЕ меняется** ✅
-- Изменение `shared/README.md` → хэш `shared` **меняется** (у него нет этого исключения)
-- Изменение `shared/utils.js` → хэш `catalog` **меняется** ✅
+**Result:**
+- Changing `shared/README.md` → `catalog` hash **does NOT change** ✅
+- Changing `shared/README.md` → `shared` hash **changes** (it doesn't have this exclusion)
+- Changing `shared/utils.js` → `catalog` hash **changes** ✅
 
-Запуск:
+Execution:
 ```bash
 $ yeth --root example
 47aa9e986c6e4c0b7bd839d97eda81700fccc8575e1cfa8cf7ce70809c4bfb1e catalog
 d98a899314cd6581de6446f1a427a9822013b3065a92a38f61d381571c86da7d shared
 
-# Изменяем shared/README.md
+# Modify shared/README.md
 $ echo "update" >> shared/README.md
 $ yeth --root example
-47aa9e986c6e4c0b7bd839d97eda81700fccc8575e1cfa8cf7ce70809c4bfb1e catalog  ← не изменился
-00214c62f5d76e98dac137675059581576eeabfc8d084dc8b6206f84dd84f692 shared  ← изменился
+47aa9e986c6e4c0b7bd839d97eda81700fccc8575e1cfa8cf7ce70809c4bfb1e catalog  ← unchanged
+00214c62f5d76e98dac137675059581576eeabfc8d084dc8b6206f84dd84f692 shared  ← changed
 
-# Изменяем shared/utils.js
+# Modify shared/utils.js
 $ echo "update" >> shared/utils.js  
 $ yeth --root example
-54010998be564b7a736a48e418084ec3247c23e8d2d5d1ba8c4065d75ea988fa catalog  ← изменился
-25116e4ece02de6be08a5093f3b867092e0b1df4713f087470bb932afe5785bb shared  ← изменился
+54010998be564b7a736a48e418084ec3247c23e8d2d5d1ba8c4065d75ea988fa catalog  ← changed
+25116e4ece02de6be08a5093f3b867092e0b1df4713f087470bb932afe5785bb shared  ← changed
 ```
 
-## Опции командной строки
+## Command line options
 
 ```
 Options:
-  -r, --root <ROOT>      Корневая директория для поиска приложений [default: .]
-  -a, --app <APP>        Имя конкретного приложения для вывода хэша
-  -H, --hash-only        Показывать только хэш без имени приложения
-  -v, --verbose            Не показывать статистику времени выполнения
-  -g, --show-graph       Показать граф зависимостей
-  -h, --help             Print help
+  -r, --root <ROOT>        Root directory to search for applications [default: .]
+  -a, --app <APP>          Name of specific application to output hash for
+  -H, --hash-only          Show only hash without application name
+  -v, --verbose            Show execution time statistics
+  -g, --show-graph         Show dependency graph
+  -w, --write-versions     Save each application's hash to yeth.version next to yeth.toml
+  -h, --help               Print help
 ```
 
-## Архитектура
+## Architecture
 
-Проект разбит на модули:
+The project is split into modules:
 
-- `cli.rs` - Парсинг аргументов командной строки (clap)
-- `config.rs` - Чтение и парсинг конфигурационных файлов
-- `graph.rs` - Построение графа зависимостей и топологическая сортировка
-- `hash.rs` - Вычисление хэшей директорий и приложений
-- `main.rs` - Точка входа и координация работы
+- `cli.rs` - Command line argument parsing (clap)
+- `config.rs` - Reading and parsing configuration files
+- `graph.rs` - Building dependency graph and topological sorting
+- `hash.rs` - Calculating directory and application hashes
+- `main.rs` - Entry point and work coordination
 
-## Алгоритм вычисления хэша
+## Hash calculation algorithm
 
-1. Для каждого приложения вычисляется собственный хэш (SHA256 всех файлов в директории)
-2. Для зависимостей-путей вычисляется хэш файла или директории
-3. Приложения обрабатываются в топологическом порядке (по зависимостям между приложениями)
-4. Финальный хэш = SHA256(собственный_хэш + хэш_зависимости_1 + ... + хэш_зависимости_N)
+1. For each application, calculate its own hash (SHA256 of all files in directory)
+2. For path dependencies, calculate file or directory hash
+3. Applications are processed in topological order (by application dependencies)
+4. Final hash = SHA256(own_hash + dependency_hash_1 + ... + dependency_hash_N)
 
-**Важные моменты:**
-- Изменение в любой зависимости (приложении, файле, директории) повлияет на хэш всех зависящих от неё приложений
-- Зависимости от файлов/директорий не участвуют в топологической сортировке (они не могут быть циклическими)
-- Зависимости-пути проверяются на существование при старте программы
-- Автоматически игнорируются системные файлы (`.git`, `.DS_Store`)
-- Дополнительно можно указать файлы для исключения через поле `exclude` в конфиге
+**Important points:**
+- Changes in any dependency (application, file, directory) will affect the hash of all applications depending on it
+- File/directory dependencies don't participate in topological sorting (they can't be circular)
+- Path dependencies are checked for existence at program start
+- System files (`.git`, `.DS_Store`, `yeth.version`) are automatically ignored
+- Additional files can be excluded via the `exclude` field in config

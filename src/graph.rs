@@ -3,22 +3,22 @@ use std::collections::{HashMap, VecDeque};
 
 use crate::config::{App, Dependency};
 
-/// Строит граф зависимостей и возвращает топологически отсортированный список
+/// Builds dependency graph and returns topologically sorted list
 pub fn topological_sort(apps: &HashMap<String, App>) -> Result<Vec<String>> {
     let mut graph: HashMap<String, Vec<String>> = HashMap::new();
     let mut in_degree: HashMap<String, usize> = HashMap::new();
 
-    // Строим граф и проверяем что все зависимости существуют
+    // Build graph and check that all dependencies exist
     for (app_name, app) in apps {
         let mut valid_app_deps = 0;
         
         for dep in &app.dependencies {
             match dep {
                 Dependency::App(dep_name) => {
-                    // Проверяем что приложение-зависимость существует
+                    // Check that application dependency exists
                     if !apps.contains_key(dep_name) {
                         return Err(anyhow::anyhow!(
-                            "Зависимость-приложение '{}' для '{}' не найдена",
+                            "Application dependency '{}' for '{}' not found",
                             dep_name,
                             app_name
                         ));
@@ -30,10 +30,10 @@ pub fn topological_sort(apps: &HashMap<String, App>) -> Result<Vec<String>> {
                     valid_app_deps += 1;
                 }
                 Dependency::Path(path) => {
-                    // Проверяем что путь существует
+                    // Check that path exists
                     if !path.exists() {
                         return Err(anyhow::anyhow!(
-                            "Зависимость-путь '{}' для '{}' не найдена",
+                            "Path dependency '{}' for '{}' not found",
                             path.display(),
                             app_name
                         ));
@@ -42,11 +42,11 @@ pub fn topological_sort(apps: &HashMap<String, App>) -> Result<Vec<String>> {
             }
         }
         
-        // В степень входа учитываем только зависимости от других приложений
+        // In-degree only counts dependencies on other applications
         in_degree.insert(app_name.clone(), valid_app_deps);
     }
 
-    // Топологическая сортировка (Kahn's algorithm)
+    // Topological sort (Kahn's algorithm)
     let mut queue = VecDeque::new();
     for (app, &deg) in &in_degree {
         if deg == 0 {
@@ -68,9 +68,9 @@ pub fn topological_sort(apps: &HashMap<String, App>) -> Result<Vec<String>> {
         }
     }
 
-    // Проверка на циклические зависимости
+    // Check for circular dependencies
     if topo_order.len() != apps.len() {
-        return Err(anyhow::anyhow!("Обнаружена циклическая зависимость!"));
+        return Err(anyhow::anyhow!("Circular dependency detected!"));
     }
 
     Ok(topo_order)

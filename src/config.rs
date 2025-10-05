@@ -19,28 +19,28 @@ struct AppInfo {
     exclude: Vec<String>,
 }
 
-/// Паттерн исключения
+/// Exclusion pattern
 #[derive(Debug, Clone)]
 pub enum ExcludePattern {
-    /// Простое имя (node_modules) - исключается везде где встретится
+    /// Simple name (node_modules) - excluded wherever it appears
     Name(String),
-    /// Абсолютный путь - исключается конкретный файл/директория
+    /// Absolute path - excludes specific file/directory
     AbsolutePath(PathBuf),
 }
 
-/// Тип зависимости
+/// Dependency type
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Dependency {
-    /// Зависимость от другого приложения
+    /// Dependency on another application
     App(String),
-    /// Зависимость от файла или директории
+    /// Dependency on a file or directory
     Path(PathBuf),
 }
 
 impl Dependency {
-    /// Парсит строку зависимости и определяет её тип
+    /// Parses dependency string and determines its type
     pub fn parse(dep_str: &str, app_dir: &PathBuf) -> Self {
-        // Если строка содержит / или начинается с . - это путь
+        // If string contains / or starts with . - it's a path
         if dep_str.contains('/') || dep_str.starts_with('.') {
             let path = app_dir.join(dep_str);
             Dependency::Path(path)
@@ -75,7 +75,7 @@ pub struct App {
     pub exclude_patterns: Vec<ExcludePattern>,
 }
 
-/// Сканирует директорию в поисках приложений с yeth.toml
+/// Scans directory for applications with yeth.toml
 pub fn discover_apps(root: &PathBuf) -> Result<HashMap<String, App>> {
     let mut apps = HashMap::new();
 
@@ -87,7 +87,7 @@ pub fn discover_apps(root: &PathBuf) -> Result<HashMap<String, App>> {
             let config_content = fs::read_to_string(entry.path())?;
             let config: AppConfig = toml::from_str(&config_content)?;
 
-            // Парсим зависимости
+            // Parse dependencies
             let dependencies = config
                 .app
                 .dependencies
@@ -95,21 +95,21 @@ pub fn discover_apps(root: &PathBuf) -> Result<HashMap<String, App>> {
                 .map(|dep_str| Dependency::parse(dep_str, &app_dir))
                 .collect();
 
-            // Парсим паттерны исключений
+            // Parse exclusion patterns
             let exclude_patterns = config
                 .app
                 .exclude
                 .iter()
                 .map(|pattern| {
-                    // Если содержит / или начинается с . - это путь
+                    // If contains / or starts with . - it's a path
                     if pattern.contains('/') || pattern.starts_with('.') {
-                        // Разрешаем относительно директории приложения
+                        // Resolve relative to application directory
                         let abs_path = app_dir.join(pattern);
-                        // Канонизируем путь (убираем .. и .)
+                        // Canonicalize path (remove .. and .)
                         let canonical = abs_path.canonicalize().unwrap_or(abs_path);
                         ExcludePattern::AbsolutePath(canonical)
                     } else {
-                        // Простое имя
+                        // Simple name
                         ExcludePattern::Name(pattern.clone())
                     }
                 })
