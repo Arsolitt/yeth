@@ -3,6 +3,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::path::Path;
 use walkdir::WalkDir;
 
 pub const CONFIG_FILE: &str = "yeth.toml";
@@ -39,7 +40,7 @@ pub enum Dependency {
 
 impl Dependency {
     /// Parses dependency string and determines its type
-    pub fn parse(dep_str: &str, app_dir: &PathBuf) -> Self {
+    pub fn parse(dep_str: &str, app_dir: &Path) -> Self {
         // If string contains / or starts with . - it's a path
         if dep_str.contains('/') || dep_str.starts_with('.') {
             let path = app_dir.join(dep_str);

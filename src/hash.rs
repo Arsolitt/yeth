@@ -86,7 +86,7 @@ pub fn hash_directory(path: &PathBuf, exclude: &[ExcludePattern]) -> Result<Stri
             let entry_path = e.path();
 
             // Ignore system files
-            let should_skip_system = entry_path.file_name().map_or(false, |n| {
+            let should_skip_system = entry_path.file_name().is_some_and(|n| {
                 n == ".git" || n == ".DS_Store" || n == "yeth.version"
             });
             if should_skip_system {

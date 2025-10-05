@@ -25,7 +25,7 @@ pub fn topological_sort(apps: &HashMap<String, App>) -> Result<Vec<String>> {
                     }
                     graph
                         .entry(dep_name.clone())
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(app_name.clone());
                     valid_app_deps += 1;
                 }
