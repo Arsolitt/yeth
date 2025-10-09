@@ -62,20 +62,28 @@ fn main() -> Result<()> {
         }
 
         let dep_hash_refs: Vec<&str> = dep_hashes_owned.iter().map(|s| s.as_str()).collect();
-        let final_hash = match args.short_hash {
-            true => compute_final_hash(&own_hash, &dep_hash_refs).chars().take(args.short_hash_length).collect(),
-            false => compute_final_hash(&own_hash, &dep_hash_refs),
-        };
+        // Always compute and store full hash for accurate calculations
+        let final_hash = compute_final_hash(&own_hash, &dep_hash_refs);
 
         hashes.insert(app_name.clone(), final_hash);
     }
+
+    // Helper function to format hash based on settings
+    let format_hash = |hash: &str| -> String {
+        if args.short_hash {
+            hash.chars().take(args.short_hash_length).collect()
+        } else {
+            hash.to_string()
+        }
+    };
 
     // Save hashes to files if needed
     if args.write_versions {
         for (app_name, hash) in &hashes {
             let app = apps.get(app_name).unwrap();
             let version_file = app.dir.join("yeth.version");
-            std::fs::write(&version_file, hash)?;
+            let formatted_hash = format_hash(hash);
+            std::fs::write(&version_file, formatted_hash)?;
         }
     }
 
@@ -83,10 +91,11 @@ fn main() -> Result<()> {
     if let Some(app_name) = &args.app {
         // Output for specific application
         if let Some(hash) = hashes.get(app_name) {
+            let formatted_hash = format_hash(hash);
             if args.hash_only {
-                println!("{}", hash);
+                println!("{}", formatted_hash);
             } else {
-                println!("{} {}", hash, app_name);
+                println!("{} {}", formatted_hash, app_name);
             }
         } else {
             eprintln!("Application '{}' not found", app_name);
@@ -98,7 +107,8 @@ fn main() -> Result<()> {
         sorted_apps.sort();
         for app in sorted_apps {
             let hash = hashes.get(app).unwrap();
-            println!("{} {}", hash, app);
+            let formatted_hash = format_hash(hash);
+            println!("{} {}", formatted_hash, app);
         }
     }
 
