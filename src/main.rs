@@ -62,7 +62,10 @@ fn main() -> Result<()> {
         }
 
         let dep_hash_refs: Vec<&str> = dep_hashes_owned.iter().map(|s| s.as_str()).collect();
-        let final_hash = compute_final_hash(&own_hash, &dep_hash_refs);
+        let final_hash = match args.short_hash {
+            true => compute_final_hash(&own_hash, &dep_hash_refs).chars().take(args.short_hash_length).collect(),
+            false => compute_final_hash(&own_hash, &dep_hash_refs),
+        };
 
         hashes.insert(app_name.clone(), final_hash);
     }

@@ -28,5 +28,13 @@ pub struct Cli {
     /// Save each application's hash to yeth.version next to yeth.toml
     #[arg(short = 'w', long)]
     pub write_versions: bool,
+
+    /// Short hash mode
+    #[arg(short = 's', long)]
+    pub short_hash: bool,
+
+    /// Short hash length
+    #[arg(short = 'l', long, default_value = "10")]
+    pub short_hash_length: usize,
 }
 
