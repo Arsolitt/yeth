@@ -1,0 +1,16 @@
+[app]
+dependencies = [
+    "backend",
+    "shared",
+    "../config"
+]
+exclude = [
+    "node_modules",
+    "dist",
+    ".next",
+    "build",
+    "*.log",
+    ".env.local",
+    "coverage"
+]
+

@@ -1,0 +1,14 @@
+[app]
+dependencies = [
+    "frontend",
+    "backend",
+    "common",
+    "../shared"
+]
+exclude = [
+    "node_modules",
+    "dist",
+    "../shared/README.md",
+    "tmp"
+]
+

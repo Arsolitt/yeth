@@ -1,0 +1,9 @@
+api:
+  version: v1
+  base_url: /api
+  rate_limit: 100
+  cors:
+    enabled: true
+    origins:
+      - http://localhost:3000
+      - https://example.com

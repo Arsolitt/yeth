@@ -18,6 +18,21 @@ cargo build --release
 
 Binary will be in `target/release/yeth`
 
+## Quick Start with Demo
+
+Try out yeth with the included demo project:
+
+```bash
+# Build yeth
+cargo build --release
+
+# Run demo
+cd demo
+./quick-test.sh
+```
+
+The demo includes 5 applications with various dependency types. See [demo/README.md](demo/README.md) for details.
+
 ## Usage
 
 ### Basic usage

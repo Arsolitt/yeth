@@ -1,0 +1,9 @@
+[app]
+dependencies = [
+    "common",
+    "shared",
+    "../config/database.json",
+    "../config/api.yaml"
+]
+exclude = ["target", "*.log", "tmp", ".env"]
+

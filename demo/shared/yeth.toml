@@ -1,0 +1,4 @@
+[app]
+dependencies = []
+exclude = ["node_modules", "dist", "*.log"]
+

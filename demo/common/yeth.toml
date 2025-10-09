@@ -1,0 +1,4 @@
+[app]
+dependencies = ["shared"]
+exclude = ["target", "*.tmp"]
+
