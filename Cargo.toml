@@ -3,10 +3,19 @@ name = "yeth"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "yeth"
+path = "src/lib/lib.rs"
+
+[[bin]]
+name = "yeth"
+path = "src/main.rs"
+
 [dependencies]
 anyhow = "1.0.100"
 clap = { version = "4.5", features = ["derive"] }
 serde = { version = "1.0.228", features = ["derive"] }
 sha2 = "0.10.9"
+thiserror = "2.0.17"
 toml = "0.9.7"
 walkdir = "2.5.0"

@@ -1,74 +1,35 @@
 mod cli;
-mod config;
-mod graph;
-mod hash;
 
 use anyhow::Result;
 use clap::Parser;
-use std::collections::HashMap;
-use std::time::Instant;
+use yeth::{cfg::{App, Config, Dependency}, error::YethError, YethEngine};
+use std::{collections::HashMap, time::Instant};
 
 use cli::Cli;
-use config::{discover_apps, Dependency};
-use graph::topological_sort;
-use hash::{compute_final_hash, hash_directory, hash_path};
 
 fn main() -> Result<()> {
-    let args = Cli::parse();
+    let args = Cli::parse().validate()?;
     let start_time = Instant::now();
 
-    // Find all applications
-    let apps = discover_apps(&args.root)?;
+    let config = Config::builder().root(args.root).build()?;
+
+    let engine = YethEngine::new(config);
+
+    let apps = engine.discover_apps()?;
 
     if apps.is_empty() {
-        eprintln!("No applications with yeth.toml found");
-        return Ok(());
+        return Err(YethError::NoApplicationsFound.into());
     }
 
     // If dependency graph requested
     if args.show_graph {
-        print_dependency_graph(&apps);
+        print_dependency_graph(apps);
         return Ok(());
     }
 
-    // Topological sort
-    let topo_order = topological_sort(&apps)?;
+    let ordered_apps = engine.topological_sort(&apps)?;
+    let hashes = engine.calculate_hashes(ordered_apps, &apps)?;
 
-    // Calculate hashes
-    let mut hashes = HashMap::new();
-    for app_name in topo_order {
-        let app = apps.get(&app_name).unwrap();
-        let own_hash = hash_directory(&app.dir, &app.exclude_patterns)?;
-
-        // Collect hashes of all dependencies (apps + paths)
-        let mut dep_hashes_owned: Vec<String> = Vec::new();
-        
-        for dep in &app.dependencies {
-            match dep {
-                Dependency::App(dep_name) => {
-                    // Get already calculated application hash
-                    let dep_hash: &String = hashes
-                        .get(dep_name)
-                        .expect("Dependency not processed in correct order");
-                    dep_hashes_owned.push(dep_hash.clone());
-                }
-                Dependency::Path(path) => {
-                    // Calculate file/directory hash on the fly
-                    // Use application's exclude_patterns - they are already resolved to absolute paths
-                    let path_hash = hash_path(path, &app.exclude_patterns)?;
-                    dep_hashes_owned.push(path_hash);
-                }
-            }
-        }
-
-        let dep_hash_refs: Vec<&str> = dep_hashes_owned.iter().map(|s| s.as_str()).collect();
-        // Always compute and store full hash for accurate calculations
-        let final_hash = compute_final_hash(&own_hash, &dep_hash_refs);
-
-        hashes.insert(app_name.clone(), final_hash);
-    }
-
-    // Helper function to format hash based on settings
     let format_hash = |hash: &str| -> String {
         if args.short_hash {
             hash.chars().take(args.short_hash_length).collect()
@@ -123,7 +84,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn print_dependency_graph(apps: &HashMap<String, config::App>) {
+fn print_dependency_graph(apps: HashMap<String, App>) {
     println!("Dependency graph:\n");
     let mut sorted_apps: Vec<_> = apps.keys().collect();
     sorted_apps.sort();
@@ -140,7 +101,7 @@ fn print_dependency_graph(apps: &HashMap<String, config::App>) {
                 } else {
                     "├─"
                 };
-                
+
                 match dep {
                     Dependency::App(dep_name) => {
                         println!("  {} {} (app)", prefix, dep_name);

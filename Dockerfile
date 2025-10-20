@@ -4,6 +4,6 @@ COPY . .
 RUN cargo build --release
 
 FROM scratch AS runtime
-WORKDIR /app
-COPY --from=builder /app/target/release/yeth /usr/local/bin
+WORKDIR /usr/local/bin
+COPY --from=builder /app/target/release/yeth .
 ENTRYPOINT ["/usr/local/bin/yeth"]

@@ -11,4 +11,3 @@ exclude = [
     "../shared/README.md",
     "tmp"
 ]
-

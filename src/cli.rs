@@ -1,4 +1,6 @@
+use anyhow::Result;
 use clap::Parser;
+use yeth::error::YethError;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -17,7 +19,7 @@ pub struct Cli {
     #[arg(short = 'H', long, requires = "app")]
     pub hash_only: bool,
 
-    /// Show execution time statistics
+    /// Show more logs and execution time statistics
     #[arg(short = 'v', long)]
     pub verbose: bool,
 
@@ -38,3 +40,8 @@ pub struct Cli {
     pub short_hash_length: usize,
 }
 
+impl Cli {
+    pub fn validate(self) -> Result<Self, YethError> {
+        Ok(self)
+    }
+}
