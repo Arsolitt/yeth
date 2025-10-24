@@ -5,16 +5,17 @@ mod hash_file;
 mod hash_directory;
 mod topological_sort;
 mod compute_final_hash;
+mod discover_apps;
 
-use cfg::{App, AppConfig, Dependency, ExcludePattern};
+use cfg::{App, Dependency};
 use error::YethError;
 use anyhow::Result;
-use std::{collections::HashMap, fs};
-use walkdir::WalkDir;
+use std::collections::HashMap;
 
-use crate::cfg::{Config, CONFIG_FILE};
+use crate::cfg::Config;
 use compute_final_hash::compute_final_hash;
 use hash_directory::{hash_directory, hash_path};
+use crate::discover_apps::discover_apps;
 
 pub struct YethEngine {
     config: Config,
@@ -31,62 +32,7 @@ impl YethEngine {
     }
 
     pub fn discover_apps(&self) -> Result<HashMap<String, App>, YethError> {
-        WalkDir::new(&self.config.root)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.file_name() == CONFIG_FILE)
-            .map(|entry| {
-                let app_dir = entry
-                    .path()
-                    .parent()
-                    .ok_or_else(|| {
-                        YethError::NoParentDir(entry.path().to_string_lossy().to_string())
-                    })?
-                    .to_path_buf();
-
-                let app_name = app_dir
-                    .file_name()
-                    .ok_or_else(|| YethError::NoFileName(app_dir.to_string_lossy().to_string()))?
-                    .to_string_lossy()
-                    .into_owned();
-
-                let app_config_content = fs::read_to_string(entry.path())?;
-                let app_config: AppConfig = toml::from_str(&app_config_content)?;
-
-                let dependencies = app_config
-                    .app
-                    .dependencies
-                    .iter()
-                    .map(|dep_string| Dependency::parse(dep_string, &app_dir))
-                    .collect::<Vec<Dependency>>();
-
-                let exclude_patterns = app_config
-                    .app
-                    .exclude
-                    .iter()
-                    .map(|pattern| {
-                        if pattern.contains("/") || pattern.starts_with(".") {
-                            let absolute_path = app_dir.join(pattern);
-                            ExcludePattern::AbsolutePath(
-                                absolute_path.canonicalize().unwrap_or(absolute_path),
-                            )
-                        } else {
-                            ExcludePattern::Name(pattern.clone())
-                        }
-                    })
-                    .collect::<Vec<ExcludePattern>>();
-
-                Ok((
-                    app_name.clone(),
-                    App {
-                        name: app_name,
-                        dir: app_dir,
-                        dependencies,
-                        exclude_patterns,
-                    },
-                ))
-            })
-            .collect()
+        discover_apps(&self.config)
     }
 
     pub fn topological_sort(&self, apps: &HashMap<String, App>) -> Result<Vec<String>, YethError> {
