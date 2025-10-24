@@ -6,16 +6,16 @@ mod hash_directory;
 mod topological_sort;
 mod compute_final_hash;
 mod discover_apps;
+mod calculate_hashes;
 
-use cfg::{App, Dependency};
+use cfg::App;
 use error::YethError;
 use anyhow::Result;
 use std::collections::HashMap;
 
 use crate::cfg::Config;
-use compute_final_hash::compute_final_hash;
-use hash_directory::{hash_directory, hash_path};
 use crate::discover_apps::discover_apps;
+use crate::calculate_hashes::{calculate_hashes, calculate_hashes_for_app};
 
 pub struct YethEngine {
     config: Config,
@@ -44,33 +44,7 @@ impl YethEngine {
         ordered_apps: Vec<String>,
         apps: &HashMap<String, App>,
     ) -> Result<HashMap<String, String>, YethError> {
-        let mut hashes = HashMap::new();
-        for app_name in ordered_apps {
-            let app = apps.get(&app_name).unwrap();
-            let own_hash = hash_directory(&app.dir, &app.exclude_patterns)?;
-
-            let mut dep_hashes_owned: Vec<String> = Vec::new();
-
-            for dep in &app.dependencies {
-                match dep {
-                    Dependency::App(dep_name) => {
-                        let dep_hash: &String =
-                            hashes.get(dep_name).ok_or(YethError::IncorrectOrder)?;
-                        dep_hashes_owned.push(dep_hash.clone());
-                    }
-                    Dependency::Path(path) => {
-                        let path_hash = hash_path(path, &app.exclude_patterns)?;
-                        dep_hashes_owned.push(path_hash);
-                    }
-                }
-            }
-
-            let dep_hash_refs: Vec<&str> = dep_hashes_owned.iter().map(|s| s.as_str()).collect();
-            let final_hash = compute_final_hash(&own_hash, &dep_hash_refs);
-
-            hashes.insert(app_name.clone(), final_hash);
-        }
-        Ok(hashes)
+        calculate_hashes(ordered_apps, apps)
     }
 
     /// Calculate hashes for a specific app and its dependencies
@@ -79,10 +53,6 @@ impl YethEngine {
         app_name: &str,
         apps: &HashMap<String, App>,
     ) -> Result<HashMap<String, String>, YethError> {
-        // Find all dependencies for the specified app
-        let dependency_order = self.find_app_dependencies(app_name, apps)?;
-        
-        // Calculate hashes only for the specified app and its dependencies
-        self.calculate_hashes(dependency_order, apps)
+        calculate_hashes_for_app(app_name, apps)
     }
 }
