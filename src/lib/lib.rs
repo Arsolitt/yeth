@@ -2,20 +2,19 @@ pub mod cfg;
 pub mod error;
 mod find_app_dependencies;
 mod hash_file;
+mod hash_directory;
 mod topological_sort;
 mod compute_final_hash;
 
 use cfg::{App, AppConfig, Dependency, ExcludePattern};
 use error::YethError;
 use anyhow::Result;
-use sha2::{Digest, Sha256};
-use std::path::Path;
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{collections::HashMap, fs};
 use walkdir::WalkDir;
 
 use crate::cfg::{Config, CONFIG_FILE};
 use compute_final_hash::compute_final_hash;
-use hash_file::hash_file;
+use hash_directory::{hash_directory, hash_path};
 
 pub struct YethEngine {
     config: Config,
@@ -140,90 +139,4 @@ impl YethEngine {
         // Calculate hashes only for the specified app and its dependencies
         self.calculate_hashes(dependency_order, apps)
     }
-}
-
-pub fn hash_directory(path: &PathBuf, exclude: &[ExcludePattern]) -> Result<String, YethError> {
-    let mut hasher = Sha256::new();
-    let mut files: Vec<PathBuf> = WalkDir::new(path)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| {
-            if !e.file_type().is_file() {
-                return false;
-            }
-
-            let entry_path = e.path();
-
-            if entry_path
-                .file_name()
-                .is_some_and(|n| n == ".git" || n == ".DS_Store" || n == "yeth.version")
-            {
-                return false;
-            }
-
-            if should_exclude(entry_path, path, exclude) {
-                return false;
-            }
-
-            true
-        })
-        .map(|e| e.path().to_path_buf())
-        .collect();
-    files.sort();
-
-    for file in files {
-        let content = fs::read(&file)?;
-        hasher.update(&content);
-    }
-    Ok(format!("{:x}", hasher.finalize()))
-}
-
-pub fn hash_path(path: &Path, exclude: &[ExcludePattern]) -> Result<String, YethError> {
-    if path.is_file() {
-        hash_file(path)
-    } else if path.is_dir() {
-        hash_directory(&path.to_path_buf(), exclude)
-    } else {
-        Err(YethError::NorFileOrDirectory(path.to_path_buf()))
-    }
-}
-
-fn should_exclude(path: &Path, base_dir: &Path, exclude_patterns: &[ExcludePattern]) -> bool {
-    if exclude_patterns.is_empty() {
-        return false;
-    }
-
-    let canonical_path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-
-    for pattern in exclude_patterns {
-        match pattern {
-            ExcludePattern::Name(name) => {
-                let name_str = name.as_str();
-                for component in path.components() {
-                    if component.as_os_str().to_string_lossy() == name_str {
-                        return true;
-                    }
-                }
-            }
-            ExcludePattern::AbsolutePath(abs_path) => {
-                if canonical_path == *abs_path || canonical_path.starts_with(abs_path) {
-                    return true;
-                }
-            }
-        }
-    }
-
-    if let Ok(rel_path) = path.strip_prefix(base_dir) {
-        let rel_path_str = rel_path.to_string_lossy();
-        for pattern in exclude_patterns {
-            if let ExcludePattern::Name(name) = pattern {
-                let name_str = name.as_str();
-                if rel_path_str.starts_with(name_str) || rel_path_str == name_str {
-                    return true;
-                }
-            }
-        }
-    }
-
-    false
 }
