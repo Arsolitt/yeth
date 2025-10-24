@@ -28,7 +28,11 @@ fn main() -> Result<()> {
     }
 
     let ordered_apps = engine.topological_sort(&apps)?;
-    let hashes = engine.calculate_hashes(ordered_apps, &apps)?;
+    let hashes = if let Some(app_name) = &args.app {
+        engine.calculate_hashes_for_app(app_name, &apps)?
+    } else {
+        engine.calculate_hashes(ordered_apps, &apps)?
+    };
 
     let format_hash = |hash: &str| -> String {
         if args.short_hash {

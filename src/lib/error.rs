@@ -32,6 +32,9 @@ pub enum YethError {
     #[error("No applications found")]
     NoApplicationsFound,
 
+    #[error("Application '{0}' not found")]
+    AppNotFound(String),
+
     #[error("Not implemented")]
     NotImplemented,
 }

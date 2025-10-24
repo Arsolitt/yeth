@@ -68,30 +68,12 @@ pub enum Dependency {
 }
 
 impl Dependency {
-    /// Parses dependency string and determines its type
     pub fn parse(dep_str: &str, app_dir: &Path) -> Self {
-        // If string contains / or starts with . - it's a path
         if dep_str.contains('/') || dep_str.starts_with('.') {
             let path = app_dir.join(dep_str);
             Dependency::Path(path)
         } else {
             Dependency::App(dep_str.to_string())
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn as_app(&self) -> Option<&str> {
-        match self {
-            Dependency::App(name) => Some(name),
-            _ => None,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn as_path(&self) -> Option<&PathBuf> {
-        match self {
-            Dependency::Path(path) => Some(path),
-            _ => None,
         }
     }
 }

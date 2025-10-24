@@ -21,6 +21,49 @@ impl YethEngine {
         Self { config }
     }
 
+    /// Find all dependencies for a specific app (including transitive dependencies)
+    pub fn find_app_dependencies(&self, app_name: &str, apps: &HashMap<String, App>) -> Result<Vec<String>, YethError> {
+        if !apps.contains_key(app_name) {
+            return Err(YethError::AppNotFound(app_name.to_string()));
+        }
+
+        let mut visited = std::collections::HashSet::new();
+        let mut result = Vec::new();
+        
+        fn dfs(
+            current: &str,
+            apps: &HashMap<String, App>,
+            visited: &mut std::collections::HashSet<String>,
+            result: &mut Vec<String>
+        ) -> Result<(), YethError> {
+            if visited.contains(current) {
+                return Ok(());
+            }
+            
+            if let Some(app) = apps.get(current) {
+                for dep in &app.dependencies {
+                    match dep {
+                        Dependency::App(dep_name) => {
+                            dfs(dep_name, apps, visited, result)?;
+                        }
+                        Dependency::Path(_) => {
+                            // Path dependencies don't need to be processed recursively
+                        }
+                    }
+                }
+            }
+            
+            visited.insert(current.to_string());
+            result.push(current.to_string());
+            Ok(())
+        }
+        
+        dfs(app_name, apps, &mut visited, &mut result)?;
+        
+        // Result is already in correct order (dependencies first, then the app)
+        Ok(result)
+    }
+
     pub fn discover_apps(&self) -> Result<HashMap<String, App>, YethError> {
         WalkDir::new(&self.config.root)
             .into_iter()
@@ -116,14 +159,14 @@ impl YethEngine {
             in_degree.insert(app_name.clone(), valid_app_deps);
         }
 
-        let mut queue = VecDeque::new();
+        let mut queue = VecDeque::with_capacity(in_degree.len());
         for (app, &deg) in &in_degree {
             if deg == 0 {
                 queue.push_back(app.clone());
             }
         }
 
-        let mut topo_order = Vec::new();
+        let mut topo_order = Vec::with_capacity(in_degree.len());
         while let Some(app) = queue.pop_front() {
             topo_order.push(app.clone());
             if let Some(neighbors) = graph.get(&app) {
@@ -176,6 +219,19 @@ impl YethEngine {
             hashes.insert(app_name.clone(), final_hash);
         }
         Ok(hashes)
+    }
+
+    /// Calculate hashes for a specific app and its dependencies
+    pub fn calculate_hashes_for_app(
+        &self,
+        app_name: &str,
+        apps: &HashMap<String, App>,
+    ) -> Result<HashMap<String, String>, YethError> {
+        // Find all dependencies for the specified app
+        let dependency_order = self.find_app_dependencies(app_name, apps)?;
+        
+        // Calculate hashes only for the specified app and its dependencies
+        self.calculate_hashes(dependency_order, apps)
     }
 }
 
