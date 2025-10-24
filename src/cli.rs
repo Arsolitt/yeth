@@ -38,6 +38,10 @@ pub struct Cli {
     /// Short hash length
     #[arg(short = 'l', long, default_value = "10")]
     pub short_hash_length: usize,
+
+    /// Run benchmarking mode with specified number of iterations
+    #[arg(long)]
+    pub bench: Option<usize>,
 }
 
 impl Cli {

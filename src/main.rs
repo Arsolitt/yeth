@@ -9,6 +9,12 @@ use cli::Cli;
 
 fn main() -> Result<()> {
     let args = Cli::parse().validate()?;
+    
+    // Check if benchmarking mode is enabled
+    if let Some(iterations) = args.bench {
+        return run_benchmark(args, iterations);
+    }
+    
     let start_time = Instant::now();
 
     let config = Config::builder().root(args.root).build()?;
@@ -120,4 +126,88 @@ fn print_dependency_graph(apps: HashMap<String, App>) {
         }
         println!();
     }
+}
+
+fn run_benchmark(mut args: Cli, iterations: usize) -> Result<()> {
+    // Disable verbose for individual runs, we'll show our own stats
+    let original_verbose = args.verbose;
+    args.verbose = false;
+    
+    println!("Running benchmark with {} iterations...", iterations);
+    println!();
+    
+    let mut total_times = Vec::with_capacity(iterations);
+    let mut apps_count = 0;
+    
+    for i in 1..=iterations {
+        let start_time = Instant::now();
+        
+        // Run the processing
+        let config = Config::builder().root(args.root.clone()).build()?;
+        let engine = YethEngine::new(config);
+        let apps = engine.discover_apps()?;
+        
+        if apps.is_empty() {
+            return Err(YethError::NoApplicationsFound.into());
+        }
+        
+        // Store apps count from first iteration
+        if i == 1 {
+            apps_count = apps.len();
+        }
+        
+        let ordered_apps = engine.topological_sort(&apps)?;
+        let _hashes = if let Some(app_name) = &args.app {
+            engine.calculate_hashes_for_app(app_name, &apps)?
+        } else {
+            engine.calculate_hashes(ordered_apps, &apps)?
+        };
+        
+        let elapsed = start_time.elapsed();
+        total_times.push(elapsed);
+        
+        if original_verbose {
+            println!("Iteration {}: {:.2?}", i, elapsed);
+        }
+    }
+    
+    // Calculate statistics
+    let total_duration: std::time::Duration = total_times.iter().sum();
+    let average_time = total_duration / iterations as u32;
+    let min_time = total_times.iter().min().unwrap();
+    let max_time = total_times.iter().max().unwrap();
+    
+    // Calculate median
+    let mut sorted_times = total_times.clone();
+    sorted_times.sort();
+    let median_time = if iterations % 2 == 0 {
+        // Even number of iterations - average of two middle values
+        let mid1 = sorted_times[iterations / 2 - 1];
+        let mid2 = sorted_times[iterations / 2];
+        (mid1 + mid2) / 2
+    } else {
+        // Odd number of iterations - middle value
+        sorted_times[iterations / 2]
+    };
+    
+    // Calculate standard deviation
+    let variance: f64 = total_times.iter()
+        .map(|&x| {
+            let diff = x.as_secs_f64() - average_time.as_secs_f64();
+            diff * diff
+        })
+        .sum::<f64>() / iterations as f64;
+    let std_dev = variance.sqrt();
+    
+    println!("Benchmark results:");
+    println!("  Iterations: {}", iterations);
+    println!("  Applications processed: {}", apps_count);
+    println!("  Average time: {:.2?}", average_time);
+    println!("  Median time: {:.2?}", median_time);
+    println!("  Min time: {:.2?}", min_time);
+    println!("  Max time: {:.2?}", max_time);
+    println!("  Standard deviation: {:.2?}", std::time::Duration::from_secs_f64(std_dev));
+    println!("  Total time: {:.2?}", total_duration);
+    
+    Ok(())
 }
