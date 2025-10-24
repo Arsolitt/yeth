@@ -1,12 +1,12 @@
 pub mod cfg;
 pub mod error;
-pub mod find_app_dependencies;
+mod find_app_dependencies;
+mod topological_sort;
 
 use cfg::{App, AppConfig, Dependency, ExcludePattern};
 use error::YethError;
 use anyhow::Result;
 use sha2::{Digest, Sha256};
-use std::collections::VecDeque;
 use std::io::{BufReader, Read};
 use std::path::Path;
 use std::{collections::HashMap, fs, path::PathBuf};
@@ -88,67 +88,7 @@ impl YethEngine {
     }
 
     pub fn topological_sort(&self, apps: &HashMap<String, App>) -> Result<Vec<String>, YethError> {
-        let mut graph: HashMap<String, Vec<String>> = HashMap::with_capacity(apps.len());
-        let mut in_degree: HashMap<String, usize> = HashMap::with_capacity(apps.len());
-
-        for (app_name, app) in apps {
-            let mut valid_app_deps = 0;
-
-            for dep in &app.dependencies {
-                match dep {
-                    Dependency::App(dep_name) => {
-                        if !apps.contains_key(dep_name) {
-                            return Err(YethError::DependencyNotFound(
-                                dep_name.to_string(),
-                                app_name.to_string(),
-                            ));
-                        }
-                        graph
-                            .entry(dep_name.clone())
-                            .or_default()
-                            .push(app_name.clone());
-                        valid_app_deps += 1;
-                    }
-                    Dependency::Path(path) => {
-                        if !path.exists() {
-                            return Err(YethError::PathDependencyNotFound(
-                                path.to_path_buf(),
-                                app_name.to_string(),
-                            ));
-                        }
-                    }
-                }
-            }
-
-            in_degree.insert(app_name.clone(), valid_app_deps);
-        }
-
-        let mut queue = VecDeque::with_capacity(in_degree.len());
-        for (app, &deg) in &in_degree {
-            if deg == 0 {
-                queue.push_back(app.clone());
-            }
-        }
-
-        let mut topo_order = Vec::with_capacity(in_degree.len());
-        while let Some(app) = queue.pop_front() {
-            topo_order.push(app.clone());
-            if let Some(neighbors) = graph.get(&app) {
-                for neighbor in neighbors {
-                    let deg = in_degree.get_mut(neighbor).unwrap();
-                    *deg -= 1;
-                    if *deg == 0 {
-                        queue.push_back(neighbor.clone());
-                    }
-                }
-            }
-        }
-
-        if topo_order.len() != apps.len() {
-            return Err(YethError::CircularDependency);
-        }
-
-        Ok(topo_order)
+      topological_sort::topological_sort(apps)
     }
 
     pub fn calculate_hashes(
