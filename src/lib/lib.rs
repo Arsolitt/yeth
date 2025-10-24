@@ -1,6 +1,7 @@
 pub mod cfg;
 pub mod error;
 mod find_app_dependencies;
+mod hash_file;
 mod topological_sort;
 mod compute_final_hash;
 
@@ -8,13 +9,13 @@ use cfg::{App, AppConfig, Dependency, ExcludePattern};
 use error::YethError;
 use anyhow::Result;
 use sha2::{Digest, Sha256};
-use std::io::{BufReader, Read};
 use std::path::Path;
 use std::{collections::HashMap, fs, path::PathBuf};
 use walkdir::WalkDir;
 
 use crate::cfg::{Config, CONFIG_FILE};
 use compute_final_hash::compute_final_hash;
+use hash_file::hash_file;
 
 pub struct YethEngine {
     config: Config,
@@ -225,28 +226,4 @@ fn should_exclude(path: &Path, base_dir: &Path, exclude_patterns: &[ExcludePatte
     }
 
     false
-}
-
-// pub fn hash_file(path: &Path) -> Result<String, YethError> {
-//     let mut hasher = Sha256::new();
-//     let content = fs::read(path)?;
-//     hasher.update(&content);
-//     Ok(format!("{:x}", hasher.finalize()))
-// }
-
-pub fn hash_file(path: &Path) -> Result<String, YethError> {
-  let mut hasher = Sha256::new();
-  let file = fs::File::open(path)?;
-  let mut reader = BufReader::new(file);
-  
-  let mut buffer = [0; 8192];
-  loop {
-      let bytes_read = reader.read(&mut buffer)?;
-      if bytes_read == 0 {
-          break;
-      }
-      hasher.update(&buffer[..bytes_read]);
-  }
-  
-  Ok(format!("{:x}", hasher.finalize()))
 }
