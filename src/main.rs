@@ -4,6 +4,7 @@ use anyhow::Result;
 use clap::Parser;
 use yeth::{cfg::{App, Config, Dependency}, error::YethError, YethEngine};
 use std::{collections::HashMap, time::Instant};
+use indicatif::{ProgressBar, ProgressStyle};
 
 use cli::Cli;
 
@@ -134,7 +135,15 @@ fn run_benchmark(mut args: Cli, iterations: usize) -> Result<()> {
     args.verbose = false;
     
     println!("Running benchmark with {} iterations...", iterations);
-    println!();
+    
+    // Create progress bar
+    let pb = ProgressBar::new(iterations as u64);
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("[{bar:40}] {pos}/{len} ({percent}%)")
+            .unwrap()
+            .progress_chars("#>-")
+    );
     
     let mut total_times = Vec::with_capacity(iterations);
     let mut apps_count = 0;
@@ -169,7 +178,11 @@ fn run_benchmark(mut args: Cli, iterations: usize) -> Result<()> {
         if original_verbose {
             println!("Iteration {}: {:.2?}", i, elapsed);
         }
+        
+        pb.inc(1);
     }
+    
+    pb.finish_with_message("Benchmark completed");
     
     // Calculate statistics
     let total_duration: std::time::Duration = total_times.iter().sum();
@@ -199,6 +212,7 @@ fn run_benchmark(mut args: Cli, iterations: usize) -> Result<()> {
         .sum::<f64>() / iterations as f64;
     let std_dev = variance.sqrt();
     
+    println!();
     println!("Benchmark results:");
     println!("  Iterations: {}", iterations);
     println!("  Applications processed: {}", apps_count);
@@ -211,3 +225,4 @@ fn run_benchmark(mut args: Cli, iterations: usize) -> Result<()> {
     
     Ok(())
 }
+
