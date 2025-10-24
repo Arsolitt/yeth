@@ -2,6 +2,7 @@ pub mod cfg;
 pub mod error;
 mod find_app_dependencies;
 mod topological_sort;
+mod compute_final_hash;
 
 use cfg::{App, AppConfig, Dependency, ExcludePattern};
 use error::YethError;
@@ -13,6 +14,7 @@ use std::{collections::HashMap, fs, path::PathBuf};
 use walkdir::WalkDir;
 
 use crate::cfg::{Config, CONFIG_FILE};
+use compute_final_hash::compute_final_hash;
 
 pub struct YethEngine {
     config: Config,
@@ -173,15 +175,6 @@ pub fn hash_directory(path: &PathBuf, exclude: &[ExcludePattern]) -> Result<Stri
         hasher.update(&content);
     }
     Ok(format!("{:x}", hasher.finalize()))
-}
-
-pub fn compute_final_hash(own_hash: &str, dep_hashes: &[&str]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(own_hash.as_bytes());
-    for dep_hash in dep_hashes {
-        hasher.update(dep_hash.as_bytes());
-    }
-    format!("{:x}", hasher.finalize())
 }
 
 pub fn hash_path(path: &Path, exclude: &[ExcludePattern]) -> Result<String, YethError> {
