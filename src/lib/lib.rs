@@ -6,6 +6,7 @@ use error::YethError;
 use anyhow::Result;
 use sha2::{Digest, Sha256};
 use std::collections::VecDeque;
+use std::io::{BufReader, Read};
 use std::path::Path;
 use std::{collections::HashMap, fs, path::PathBuf};
 use walkdir::WalkDir;
@@ -124,8 +125,8 @@ impl YethEngine {
     }
 
     pub fn topological_sort(&self, apps: &HashMap<String, App>) -> Result<Vec<String>, YethError> {
-        let mut graph: HashMap<String, Vec<String>> = HashMap::new();
-        let mut in_degree: HashMap<String, usize> = HashMap::new();
+        let mut graph: HashMap<String, Vec<String>> = HashMap::with_capacity(apps.len());
+        let mut in_degree: HashMap<String, usize> = HashMap::with_capacity(apps.len());
 
         for (app_name, app) in apps {
             let mut valid_app_deps = 0;
@@ -330,9 +331,26 @@ fn should_exclude(path: &Path, base_dir: &Path, exclude_patterns: &[ExcludePatte
     false
 }
 
+// pub fn hash_file(path: &Path) -> Result<String, YethError> {
+//     let mut hasher = Sha256::new();
+//     let content = fs::read(path)?;
+//     hasher.update(&content);
+//     Ok(format!("{:x}", hasher.finalize()))
+// }
+
 pub fn hash_file(path: &Path) -> Result<String, YethError> {
-    let mut hasher = Sha256::new();
-    let content = fs::read(path)?;
-    hasher.update(&content);
-    Ok(format!("{:x}", hasher.finalize()))
+  let mut hasher = Sha256::new();
+  let file = fs::File::open(path)?;
+  let mut reader = BufReader::new(file);
+  
+  let mut buffer = [0; 8192];
+  loop {
+      let bytes_read = reader.read(&mut buffer)?;
+      if bytes_read == 0 {
+          break;
+      }
+      hasher.update(&buffer[..bytes_read]);
+  }
+  
+  Ok(format!("{:x}", hasher.finalize()))
 }
