@@ -1,5 +1,6 @@
 pub mod cfg;
 pub mod error;
+pub mod find_app_dependencies;
 
 use cfg::{App, AppConfig, Dependency, ExcludePattern};
 use error::YethError;
@@ -24,45 +25,7 @@ impl YethEngine {
 
     /// Find all dependencies for a specific app (including transitive dependencies)
     pub fn find_app_dependencies(&self, app_name: &str, apps: &HashMap<String, App>) -> Result<Vec<String>, YethError> {
-        if !apps.contains_key(app_name) {
-            return Err(YethError::AppNotFound(app_name.to_string()));
-        }
-
-        let mut visited = std::collections::HashSet::new();
-        let mut result = Vec::new();
-        
-        fn dfs(
-            current: &str,
-            apps: &HashMap<String, App>,
-            visited: &mut std::collections::HashSet<String>,
-            result: &mut Vec<String>
-        ) -> Result<(), YethError> {
-            if visited.contains(current) {
-                return Ok(());
-            }
-            
-            if let Some(app) = apps.get(current) {
-                for dep in &app.dependencies {
-                    match dep {
-                        Dependency::App(dep_name) => {
-                            dfs(dep_name, apps, visited, result)?;
-                        }
-                        Dependency::Path(_) => {
-                            // Path dependencies don't need to be processed recursively
-                        }
-                    }
-                }
-            }
-            
-            visited.insert(current.to_string());
-            result.push(current.to_string());
-            Ok(())
-        }
-        
-        dfs(app_name, apps, &mut visited, &mut result)?;
-        
-        // Result is already in correct order (dependencies first, then the app)
-        Ok(result)
+      find_app_dependencies::find_app_dependencies(app_name, apps)
     }
 
     pub fn discover_apps(&self) -> Result<HashMap<String, App>, YethError> {
